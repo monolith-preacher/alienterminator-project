@@ -4,10 +4,14 @@ import random
 import sys
 import math
 import time
+from pathlib import Path
 
 # Inicializar o PyGame
 pygame.init()
 pygame.mixer.init()  # Inicializar o mixer para sons
+
+# Pasta de assets relativa ao script, para o jogo rodar de qualquer diretório
+ASSETS_DIR = Path(__file__).resolve().parent / 'assets'
 
 # Definir cores
 WHITE = (255, 255, 255)
@@ -26,19 +30,19 @@ clock = pygame.time.Clock()
 FPS = 60
 
 # Carregar imagens
-player_img = pygame.image.load('assets/player.png')
-background_img = pygame.image.load('assets/background.png')
-predator_img = pygame.image.load('assets/predator.png')
-predator_laser_img = pygame.image.load('assets/predator_laser.png')
-predator_laser2_img = pygame.image.load('assets/predator_laser2.png')
-heart_img = pygame.image.load('assets/heart.png') 
+player_img = pygame.image.load(str(ASSETS_DIR / 'player.png'))
+background_img = pygame.image.load(str(ASSETS_DIR / 'background.png'))
+predator_img = pygame.image.load(str(ASSETS_DIR / 'predator.png'))
+predator_laser_img = pygame.image.load(str(ASSETS_DIR / 'predator_laser.png'))
+predator_laser2_img = pygame.image.load(str(ASSETS_DIR / 'predator_laser2.png'))
+heart_img = pygame.image.load(str(ASSETS_DIR / 'heart.png')) 
 player_rect = player_img.get_rect(midbottom=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 20))
 
 # Carregar sons
-shoot_sound = pygame.mixer.Sound('assets/shoot.wav')
-damage_sound = pygame.mixer.Sound('assets/damage.wav')
-special_shot_sound = pygame.mixer.Sound('assets/special_shot.wav')  # Carregar som do tiro especial
-background_music = 'assets/background_music.mp3'
+shoot_sound = pygame.mixer.Sound(str(ASSETS_DIR / 'shoot.wav'))
+damage_sound = pygame.mixer.Sound(str(ASSETS_DIR / 'damage.wav'))
+special_shot_sound = pygame.mixer.Sound(str(ASSETS_DIR / 'special_shot.wav'))  # Carregar som do tiro especial
+background_music = str(ASSETS_DIR / 'background_music.wav')
 
 # Ajustar o volume dos sons
 shoot_sound.set_volume(0.1)  # Definir o volume do som de tiro para 10%
@@ -53,7 +57,7 @@ last_special_shot_time = 0
 def create_alien_wave(num_aliens):
     aliens = []
     for _ in range(num_aliens):
-        alien_img = pygame.image.load('assets/alien.png')
+        alien_img = pygame.image.load(str(ASSETS_DIR / 'alien.png'))
         alien_rect = alien_img.get_rect(topleft=(random.randint(0, SCREEN_WIDTH-40), random.randint(-1000, -40)))
         aliens.append((alien_img, alien_rect))
     return aliens
@@ -62,7 +66,7 @@ def create_alien_wave(num_aliens):
 def create_meteorites(num_meteorites):
     meteorites = []
     for _ in range(num_meteorites):
-        meteorite_img = pygame.image.load('assets/meteorite.png')
+        meteorite_img = pygame.image.load(str(ASSETS_DIR / 'meteorite.png'))
         meteorite_rect = meteorite_img.get_rect(topleft=(random.randint(0, SCREEN_WIDTH-60), random.randint(-1000, -40)))
         meteorites.append((meteorite_img, meteorite_rect))
     return meteorites
@@ -266,6 +270,8 @@ def launch_special_shot(player_rect, special_bullets):
                 special_bullets.append((bullet_rect, velocity))
         special_shot_sound.play()  # Reproduzir som do tiro especial
         last_special_shot_time = current_time  # Atualizar o tempo do último tiro especial
+        return True
+    return False  # Ainda em cooldown, nenhum tiro disparado
 
 # Função para mover e desenhar os tiros especiais
 def move_and_draw_special_bullets(special_bullets):
@@ -315,10 +321,10 @@ def game_loop():
                     bullets.append(bullet)
                     shoot_sound.play()  # Tocar som de tiro
                 if event.key == pygame.K_b and power_ready and not game_over and special_uses > 0:
-                    launch_special_shot(player_rect, special_bullets)
-                    special_uses -= 1  # Reduzir o número de usos restantes
-                    if special_uses == 0:
-                        power_ready = False  # Desativar o poder quando os tiros especiais acabarem
+                    if launch_special_shot(player_rect, special_bullets):
+                        special_uses -= 1  # Reduzir o número de usos restantes só se o tiro saiu
+                        if special_uses == 0:
+                            power_ready = False  # Desativar o poder quando os tiros especiais acabarem
                 if event.key == pygame.K_ESCAPE:
                     return
 
@@ -329,7 +335,7 @@ def game_loop():
             player_rect.x += player_speed
 
         if not game_over:
-            for bullet in bullets:
+            for bullet in bullets[:]:  # Iterar sobre uma cópia, pois a lista é alterada
                 bullet.y -= 10
                 if bullet.bottom < 0:
                     bullets.remove(bullet)
@@ -357,11 +363,11 @@ def game_loop():
                     laser2 = predator_laser2_img.get_rect(midtop=(predator.centerx - 20, predator.bottom))
                     predator_lasers2.append(laser2)
 
-                for laser in predator_lasers:
+                for laser in predator_lasers[:]:
                     laser.y += 8
                     if laser.top > SCREEN_HEIGHT:
                         predator_lasers.remove(laser)
-                for laser2 in predator_lasers2:
+                for laser2 in predator_lasers2[:]:
                     laser2.y += 6
                     if laser2.top > SCREEN_HEIGHT:
                         predator_lasers2.remove(laser2)
@@ -400,6 +406,10 @@ def game_loop():
             elif collision_result == 'Predator defeated':
                 predator = None  # Predator derrotado, remove-o do jogo
                 predator_active = False  # Desativar o Predator
+                # Limpar os lasers restantes; sem o Predator eles deixariam de ser movidos
+                # e desenhados, mas continuariam causando colisão (lasers invisíveis)
+                predator_lasers.clear()
+                predator_lasers2.clear()
 
             display_score_and_kills(score, power_kills, total_kills, predator_kills,power_ready, special_uses)
 
