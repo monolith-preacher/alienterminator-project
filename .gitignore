@@ -1,4 +1,25 @@
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Ambientes virtuais
 .venv/
 venv/
+env/
+
+# Testes e ferramentas
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Editores e sistema operacional
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
